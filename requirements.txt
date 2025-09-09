@@ -1,0 +1,11 @@
+Flask
+pyodbc
+sentence-transformers
+torch
+torchvision
+openai
+chromadb
+python-dotenv
+PyMuPDF
+nltk
+gunicorn   
