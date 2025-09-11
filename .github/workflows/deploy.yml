@@ -3,7 +3,7 @@ name: PDF Chatbot CI/CD
 on:
   push:
     branches:
-      - main  # ensure you are pushing to main
+      - main
 
 jobs:
   build-and-deploy:
@@ -20,11 +20,7 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # 3️⃣ Docker logout (cleanup old credentials)
-      - name: Docker Logout
-        run: docker logout pdfchatbotacr6789.azurecr.io || true
-
-      # 4️⃣ Login to Azure Container Registry (ACR)
+      # 3️⃣ Login to Azure Container Registry (ACR)
       - name: Login to Azure Container Registry
         uses: azure/docker-login@v1
         with:
@@ -32,17 +28,17 @@ jobs:
           username: ${{ secrets.DOCKER_REGISTRY_SERVER_USERNAME }}
           password: ${{ secrets.DOCKER_REGISTRY_SERVER_PASSWORD }}
 
-      # 5️⃣ Build Docker image
+      # 4️⃣ Build Docker image
       - name: Build Docker image
         run: |
           docker build -t pdfchatbotacr6789.azurecr.io/rag_chat_bot:latest .
 
-      # 6️⃣ Push Docker image to ACR
+      # 5️⃣ Push Docker image to ACR
       - name: Push Docker image to ACR
         run: |
           docker push pdfchatbotacr6789.azurecr.io/rag_chat_bot:latest
 
-      # 7️⃣ Update Azure Web App to use the new image
+      # 6️⃣ Update Azure Web App to use the new image
       - name: Update Azure Web App
         run: |
           az webapp config container set \
@@ -53,7 +49,7 @@ jobs:
             --container-registry-user ${{ secrets.DOCKER_REGISTRY_SERVER_USERNAME }} \
             --container-registry-password ${{ secrets.DOCKER_REGISTRY_SERVER_PASSWORD }}
 
-      # 8️⃣ Restart Web App (to apply changes)
+      # 7️⃣ Restart Web App to apply changes
       - name: Restart Azure Web App
         run: |
           az webapp restart --name pdfchatbot-app-6789 --resource-group rag_pdf_chatbot
