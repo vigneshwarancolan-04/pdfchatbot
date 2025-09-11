@@ -35,7 +35,7 @@ RUN curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor 
 WORKDIR /app
 
 # Copy and install Python dependencies
-COPY requirements.txt .
+COPY requirements.txt . 
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install pyodbc gunicorn
@@ -43,7 +43,7 @@ RUN pip install pyodbc gunicorn
 # Copy app code
 COPY . .
 
-# Download NLTK data (stopwords)
+# Download NLTK data (stopwords) during build
 RUN python -m nltk.downloader stopwords
 
 # Create folders for uploads and vector store
@@ -52,5 +52,5 @@ RUN mkdir -p ${UPLOAD_FOLDER} ${VECTORSTORE_PATH}
 # Expose port 80
 EXPOSE 80
 
-# Start Flask app with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:80", "app:app"]
+# Start Flask app with Gunicorn, increased timeout
+CMD ["gunicorn", "--workers", "2", "--threads", "4", "--timeout", "300", "--bind", "0.0.0.0:80", "app:app"]
