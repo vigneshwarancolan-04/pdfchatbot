@@ -79,4 +79,4 @@ RUN mkdir -p ${UPLOAD_FOLDER} ${VECTORSTORE_PATH}
 EXPOSE 80
 
 # Start app with Gunicorn (increase timeout)
-CMD ["gunicorn", "--bind", "0.0.0.0:80", "--timeout", "300", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "--timeout", "300", "app:app"]
