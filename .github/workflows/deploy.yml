@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣Checkout repository
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -24,28 +24,32 @@ jobs:
       - name: Login to Azure Container Registry
         uses: azure/docker-login@v1
         with:
-          login-server: pdfchatbotacr12345.azurecr.io
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+          login-server: pdfchatbotacr6789.azurecr.io
+          username: ${{ secrets.DOCKER_REGISTRY_SERVER_USERNAME }}
+          password: ${{ secrets.DOCKER_REGISTRY_SERVER_PASSWORD }}
 
       # 4️⃣ Build Docker image
       - name: Build Docker image
         run: |
-          docker build -t pdfchatbotacr12345.azurecr.io/webapppdfchatbotapp12345:latest .
+          docker build -t pdfchatbotacr6789.azurecr.io/rag_chat_bot:latest .
 
       # 5️⃣ Push Docker image to ACR
       - name: Push Docker image to ACR
         run: |
-          docker push pdfchatbotacr12345.azurecr.io/webapppdfchatbotapp12345:latest
+          docker push pdfchatbotacr6789.azurecr.io/rag_chat_bot:latest
 
       # 6️⃣ Update Azure Web App to use the new image
       - name: Update Azure Web App
         run: |
           az webapp config container set \
-            --name pdfchatbot-app-canadacentral \
-            --resource-group myResourceGroup \
-            --container-image-name pdfchatbotacr12345.azurecr.io/webapppdfchatbotapp12345:latest \
-            --container-registry-url https://pdfchatbotacr12345.azurecr.io \
-            --container-registry-user ${{ secrets.ACR_USERNAME }} \
-            --container-registry-password ${{ secrets.ACR_PASSWORD }}
+            --name pdfchatbot-app-6789 \
+            --resource-group rag_pdf_chatbot \
+            --container-image-name pdfchatbotacr6789.azurecr.io/rag_chat_bot:latest \
+            --container-registry-url https://pdfchatbotacr6789.azurecr.io \
+            --container-registry-user ${{ secrets.DOCKER_REGISTRY_SERVER_USERNAME }} \
+            --container-registry-password ${{ secrets.DOCKER_REGISTRY_SERVER_PASSWORD }}
 
+      # 7️⃣ Restart Web App (to apply changes)
+      - name: Restart Azure Web App
+        run: |
+          az webapp restart --name pdfchatbot-app-6789 --resource-group rag_pdf_chatbot
