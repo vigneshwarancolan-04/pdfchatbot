@@ -1,6 +1,5 @@
 name: PDF Chatbot CI/CD
 
-# Trigger workflow on push to main branch
 on:
   push:
     branches:
@@ -11,11 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout the GitHub repo
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Login to Azure using Service Principal
+      # 2️⃣ Azure Login with Service Principal JSON
       - name: Azure Login
         uses: azure/login@v1
         with:
@@ -29,7 +28,7 @@ jobs:
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
-      # 4️⃣ Build Docker image from your repo
+      # 4️⃣ Build Docker image
       - name: Build Docker image
         run: |
           docker build -t pdfchatbotacr12345.azurecr.io/webapppdfchatbotapp12345:latest .
@@ -39,10 +38,13 @@ jobs:
         run: |
           docker push pdfchatbotacr12345.azurecr.io/webapppdfchatbotapp12345:latest
 
-      # 6️⃣ Update Azure Web App to pull latest image
+      # 6️⃣ Update Azure Web App to use the new image
       - name: Update Azure Web App
         run: |
           az webapp config container set \
             --name webapppdfchatbotapp12345 \
             --resource-group myResourceGroup \
-            --docker-custom-image-name pdfchatbotacr12345.azurecr.io/webapppdfchatbotapp12345:latest
+            --docker-custom-image-name pdfchatbotacr12345.azurecr.io/webapppdfchatbotapp12345:latest \
+            --docker-registry-server-url https://pdfchatbotacr12345.azurecr.io \
+            --docker-registry-server-user ${{ secrets.ACR_USERNAME }} \
+            --docker-registry-server-password ${{ secrets.ACR_PASSWORD }}
