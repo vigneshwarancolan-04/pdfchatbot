@@ -1,13 +1,46 @@
+# Python bytecode / cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
-env/
-venv/
+
+# Virtual environments
+.env
 .venv/
-*.git
+venv/
+ENV/
+
+# Distribution / packaging
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Git and other VCS
+.git
+.gitignore
+.gitattributes
+
+# Logs and temp files
 *.log
 *.sqlite3
-chroma_store/
-pdfs/
+*.db
+*.tar
+*.gz
+*.zip
+*.bak
+.DS_Store
+Thumbs.db
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints
+
+# VS Code / IDE configs
+.vscode/
+.idea/
+
+# Project-specific folders you don’t want in container
+chroma_store/   # Local vector database (rebuilt inside container)
+pdfs/           # Uploaded PDFs (runtime only)
+uploads/        # If you use uploads directory
+tests/          # If you have unit tests not needed in prod
