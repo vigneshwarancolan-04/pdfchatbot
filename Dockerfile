@@ -52,15 +52,19 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PORT=8080 \
     NLTK_DATA=/usr/local/share/nltk_data
 
-# Install runtime dependencies + ODBC driver
+WORKDIR /app
+
+# Install runtime dependencies + Microsoft ODBC
 RUN apt-get update && apt-get install -y \
     poppler-utils \
     libgl1 \
     unixodbc \
-    msodbcsql17 \
+    curl \
+    gnupg \
+    && curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/debian/11/prod bullseye main" > /etc/apt/sources.list.d/mssql-release.list \
+    && apt-get update && ACCEPT_EULA=Y apt-get install -y msodbcsql17 \
     && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
 
 # Copy Python packages from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
