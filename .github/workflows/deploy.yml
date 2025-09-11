@@ -3,7 +3,7 @@ name: PDF Chatbot CI/CD
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   build-and-deploy:
