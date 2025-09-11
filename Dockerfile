@@ -1,15 +1,12 @@
-# Use slim Python 3.11 image
-FROM python:3.11-slim
+# ===== STAGE 1: Build stage =====
+FROM python:3.11-slim AS builder
 
 # Environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    VECTORSTORE_PATH=/app/chroma_store \
-    UPLOAD_FOLDER=/app/pdfs \
-    PORT=80
+    PIP_NO_CACHE_DIR=1
 
-# Install system dependencies (incl. ODBC for Azure SQL)
+# Install build dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     pkg-config \
@@ -34,23 +31,52 @@ RUN curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor 
 # Set working directory
 WORKDIR /app
 
-# Copy and install Python dependencies
-COPY requirements.txt . 
+# Copy requirements and install Python packages
+COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install pyodbc gunicorn
+RUN pip install pyodbc gunicorn nltk
 
-# Copy app code
+# Download NLTK stopwords
+RUN python -m nltk.downloader stopwords
+
+# Copy application code
 COPY . .
 
-# Download NLTK data (stopwords) during build
-RUN python -m nltk.downloader stopwords
+# ===== STAGE 2: Runtime stage =====
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    VECTORSTORE_PATH=/app/chroma_store \
+    UPLOAD_FOLDER=/app/pdfs \
+    PORT=80
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y \
+    poppler-utils \
+    libgl1 \
+    unixodbc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy installed packages from builder stage
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy app code and NLTK data
+COPY --from=builder /app /app
+ENV NLTK_DATA=/usr/local/share/nltk_data
 
 # Create folders for uploads and vector store
 RUN mkdir -p ${UPLOAD_FOLDER} ${VECTORSTORE_PATH}
 
-# Expose port 80
+# Expose port
 EXPOSE 80
 
-# Start Flask app with Gunicorn, increased timeout
-CMD ["gunicorn", "--workers", "2", "--threads", "4", "--timeout", "300", "--bind", "0.0.0.0:80", "app:app"]
+# Start app with Gunicorn (increase timeout)
+CMD ["gunicorn", "--bind", "0.0.0.0:80", "--timeout", "300", "app:app"]
