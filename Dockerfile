@@ -53,4 +53,4 @@ RUN mkdir -p ${UPLOAD_FOLDER} ${VECTORSTORE_PATH}
 EXPOSE 80
 
 # Start Flask app with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8181", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:80", "app:app"]
