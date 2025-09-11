@@ -42,9 +42,10 @@ jobs:
       - name: Update Azure Web App
         run: |
           az webapp config container set \
-            --name webapppdfchatbotapp12345 \
+            --name pdfchatbot-app-canadacentral \
             --resource-group myResourceGroup \
-            --docker-custom-image-name pdfchatbotacr12345.azurecr.io/webapppdfchatbotapp12345:latest \
-            --docker-registry-server-url https://pdfchatbotacr12345.azurecr.io \
-            --docker-registry-server-user ${{ secrets.ACR_USERNAME }} \
-            --docker-registry-server-password ${{ secrets.ACR_PASSWORD }}
+            --container-image-name pdfchatbotacr12345.azurecr.io/webapppdfchatbotapp12345:latest \
+            --container-registry-url https://pdfchatbotacr12345.azurecr.io \
+            --container-registry-user ${{ secrets.ACR_USERNAME }} \
+            --container-registry-password ${{ secrets.ACR_PASSWORD }}
+
