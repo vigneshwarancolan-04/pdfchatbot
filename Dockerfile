@@ -34,14 +34,14 @@ COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ✅ Make sure we remove wrong fitz and install correct PyMuPDF
+# Ensure correct PyMuPDF
 RUN pip uninstall -y fitz || true
 RUN pip install PyMuPDF
 
 # Download NLTK stopwords
 RUN python -m nltk.downloader -d /usr/local/share/nltk_data stopwords
 
-# Copy the app source code
+# Copy app source code
 COPY . .
 
 # ===== STAGE 2: Runtime stage =====
@@ -57,7 +57,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install runtime dependencies + Microsoft ODBC
+# Install runtime dependencies + ODBC
 RUN apt-get update && apt-get install -y \
     poppler-utils \
     libgl1 \
@@ -67,9 +67,9 @@ RUN apt-get update && apt-get install -y \
     && curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/debian/11/prod bullseye main" > /etc/apt/sources.list.d/mssql-release.list \
     && apt-get update && ACCEPT_EULA=Y apt-get install -y msodbcsql17 \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Copy Python packages from builder
+# Copy Python packages + NLTK from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /usr/local/share/nltk_data /usr/local/share/nltk_data
@@ -77,10 +77,10 @@ COPY --from=builder /usr/local/share/nltk_data /usr/local/share/nltk_data
 # Copy app code
 COPY --from=builder /app /app
 
-# Create required folders
-RUN mkdir -p ${UPLOAD_FOLDER} ${VECTORSTORE_PATH}
+# Ensure directories exist
+RUN mkdir -p $UPLOAD_FOLDER $VECTORSTORE_PATH
 
-EXPOSE 8181
+EXPOSE $PORT
 
-# Start the app with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8181", "--timeout", "300", "app:app"]
+# Use shell form so $PORT gets evaluated
+ENTRYPOINT ["sh", "-c", "gunicorn --bind 0.0.0.0:$PORT --timeout 300 --log-level info --access-logfile - app:app"]
