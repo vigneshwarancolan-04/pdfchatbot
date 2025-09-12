@@ -80,7 +80,7 @@ COPY --from=builder /app /app
 # Create required folders
 RUN mkdir -p ${UPLOAD_FOLDER} ${VECTORSTORE_PATH}
 
-EXPOSE 8080
+EXPOSE 8181
 
 # Start the app with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--timeout", "300", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8181", "--timeout", "300", "app:app"]
