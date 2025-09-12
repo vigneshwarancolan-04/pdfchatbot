@@ -34,6 +34,10 @@ COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
+# ✅ Make sure we remove wrong fitz and install correct PyMuPDF
+RUN pip uninstall -y fitz || true
+RUN pip install PyMuPDF
+
 # Download NLTK stopwords
 RUN python -m nltk.downloader -d /usr/local/share/nltk_data stopwords
 
