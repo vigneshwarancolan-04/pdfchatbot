@@ -33,7 +33,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install pyodbc gunicorn nltk chromadb sentence-transformers openai fitz
 
 # Download NLTK stopwords
 RUN python -m nltk.downloader -d /usr/local/share/nltk_data stopwords
