@@ -34,10 +34,6 @@ COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Ensure correct PyMuPDF
-RUN pip uninstall -y fitz || true
-RUN pip install PyMuPDF
-
 # Download NLTK stopwords
 RUN python -m nltk.downloader -d /usr/local/share/nltk_data stopwords
 
@@ -80,7 +76,7 @@ COPY --from=builder /app /app
 # Ensure directories exist
 RUN mkdir -p $UPLOAD_FOLDER $VECTORSTORE_PATH
 
-EXPOSE $PORT
+EXPOSE 8181
 
-# Use shell form so $PORT gets evaluated
-ENTRYPOINT ["sh", "-c", "gunicorn --bind 0.0.0.0:${WEBSITES_PORT:-$PORT} --timeout 300 --log-level info --access-logfile - app:app"]
+# Startup command: use $WEBSITES_PORT if Azure sets it
+ENTRYPOINT ["sh", "-c", "gunicorn --bind 0.0.0.0:${WEBSITES_PORT:-8181} --timeout 300 --log-level info --access-logfile - app:app"]
