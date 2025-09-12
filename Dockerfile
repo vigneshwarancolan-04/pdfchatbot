@@ -83,4 +83,4 @@ RUN mkdir -p $UPLOAD_FOLDER $VECTORSTORE_PATH
 EXPOSE $PORT
 
 # Use shell form so $PORT gets evaluated
-ENTRYPOINT ["sh", "-c", "gunicorn --bind 0.0.0.0:$PORT --timeout 300 --log-level info --access-logfile - app:app"]
+ENTRYPOINT ["sh", "-c", "gunicorn --bind 0.0.0.0:${WEBSITES_PORT:-$PORT} --timeout 300 --log-level info --access-logfile - app:app"]
