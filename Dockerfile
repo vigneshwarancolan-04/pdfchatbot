@@ -76,7 +76,8 @@ COPY --from=builder /app /app
 # Ensure directories exist
 RUN mkdir -p $UPLOAD_FOLDER $VECTORSTORE_PATH
 
-EXPOSE 8181
+# Expose port
+EXPOSE 80
 
-# Startup command: use $WEBSITES_PORT if Azure sets it
-ENTRYPOINT ["sh", "-c", "gunicorn --bind 0.0.0.0:${WEBSITES_PORT:-8181} --timeout 300 --log-level info --access-logfile - app:app"]
+# Start Flask app
+CMD ["python", "app.py"]
