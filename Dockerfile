@@ -77,7 +77,7 @@ COPY --from=builder /app /app
 RUN mkdir -p $UPLOAD_FOLDER $VECTORSTORE_PATH
 
 # Expose port
-EXPOSE 80
+EXPOSE 8181
 
 # Start Flask app
 CMD ["python", "app.py"]
