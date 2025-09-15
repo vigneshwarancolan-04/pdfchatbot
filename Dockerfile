@@ -79,5 +79,5 @@ RUN mkdir -p $UPLOAD_FOLDER $VECTORSTORE_PATH
 # Expose port
 EXPOSE 8080
 
-# Start Flask app
-CMD ["python", "app.py"]
+# Start Flask app with Gunicorn (production)
+CMD ["gunicorn", "-b", "0.0.0.0:${PORT}", "app:app"]
