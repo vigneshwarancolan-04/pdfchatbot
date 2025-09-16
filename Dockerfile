@@ -8,7 +8,7 @@ ENV PYTHONUNBUFFERED=1
 # Set work directory
 WORKDIR /app
 
-# Install system dependencies (needed for pyodbc, fitz, sentence-transformers, SQL Server ODBC)
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     unixodbc-dev \
@@ -17,16 +17,18 @@ RUN apt-get update && apt-get install -y \
     curl \
     libgl1 \
     libglib2.0-0 \
-    gnupg2 \
+    gnupg \
     apt-transport-https \
+    lsb-release \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Microsoft ODBC Driver 17 for SQL Server
-RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
-    && curl https://packages.microsoft.com/config/debian/12/prod.list > /etc/apt/sources.list.d/mssql-release.list \
+RUN curl https://packages.microsoft.com/config/debian/12/prod.list -o /etc/apt/sources.list.d/mssql-release.list \
+    && curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /etc/apt/trusted.gpg.d/microsoft.gpg \
     && apt-get update \
     && ACCEPT_EULA=Y apt-get install -y msodbcsql17 \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first (for caching)
 COPY requirements.txt /app/
@@ -43,5 +45,5 @@ COPY . /app/
 # Expose port
 EXPOSE 8080
 
-# Start Gunicorn (bind to port 8080 for Azure)
+# Start Gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
