@@ -31,9 +31,8 @@ RUN python -m nltk.downloader stopwords
 # Copy project files
 COPY . /app/
 
-# Expose port (matches your app.py default)
+# Expose port (Azure injects WEBSITES_PORT=8080)
 EXPOSE 8080
 
-# Start Gunicorn with dynamic port support (for Azure)
-CMD ["python", "app.py"]
-
+# Start Gunicorn with dynamic port (Azure expects this)
+CMD ["gunicorn", "--bind", "0.0.0.0:${PORT:-8080}", "app:app"]
