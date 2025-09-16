@@ -25,14 +25,15 @@ RUN apt-get update && apt-get install -y \
 # Install Microsoft ODBC Driver 17 for SQL Server
 RUN curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft.gpg && \
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/debian/11/prod bullseye main" > /etc/apt/sources.list.d/mssql-release.list && \
-    apt-get update && ACCEPT_EULA=Y apt-get install -y msodbcsql17
+    apt-get update && ACCEPT_EULA=Y apt-get install -y msodbcsql17 && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy requirements and install
+# Copy requirements and install dependencies
 COPY requirements.txt .
-RUN pip install --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Download NLTK stopwords
 RUN python -m nltk.downloader -d /usr/local/share/nltk_data stopwords
@@ -53,7 +54,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install runtime dependencies + ODBC
+# Install runtime dependencies + ODBC driver
 RUN apt-get update && apt-get install -y \
     poppler-utils \
     libgl1 \
@@ -65,7 +66,7 @@ RUN apt-get update && apt-get install -y \
     && apt-get update && ACCEPT_EULA=Y apt-get install -y msodbcsql17 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Copy Python packages + NLTK from builder
+# Copy Python dependencies + NLTK from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /usr/local/share/nltk_data /usr/local/share/nltk_data
@@ -79,6 +80,5 @@ RUN mkdir -p $UPLOAD_FOLDER $VECTORSTORE_PATH
 # Expose port
 EXPOSE 8080
 
-# Start Flask app with Gunicorn (production)
+# Start Flask app with Gunicorn (production-ready)
 CMD ["gunicorn", "-b", "0.0.0.0:8080", "--workers=2", "--threads=4", "--timeout=300", "app:app"]
-
