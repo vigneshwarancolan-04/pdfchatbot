@@ -34,5 +34,5 @@ COPY . /app/
 # Expose port (matches your app.py default)
 EXPOSE 8080
 
-# Start with Gunicorn (production server)
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
+# Start Gunicorn with dynamic port support (for Azure)
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --workers=2 --threads=4 --timeout=300 app:app"]
