@@ -35,5 +35,4 @@ COPY . /app/
 EXPOSE 8080
 
 # Start Gunicorn with dynamic port (Azure expects this)
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} app:app"]
-
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
