@@ -3,7 +3,7 @@ import uuid
 import datetime
 import fitz
 import nltk
-import pyodbc   
+import pyodbc
 from flask import Flask, render_template, request, redirect, url_for, flash
 from sentence_transformers import SentenceTransformer, util
 from openai import OpenAI, OpenAIError
@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 # --- Setup ---
 nltk.download("stopwords", quiet=True)
 stop_words = set(stopwords.words("english"))
-load_dotenv(".env")  
+load_dotenv(".env")
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "supersecretkey")
@@ -23,10 +23,10 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs('chroma_store', exist_ok=True)
 
 # --- Environment Variables ---
-SQL_SERVER = os.getenv("SQL_SERVER")       
-SQL_DB = os.getenv("SQL_DB")               
-SQL_USER = os.getenv("SQL_USER")           
-SQL_PASSWORD = os.getenv("SQL_PASSWORD")   
+SQL_SERVER = os.getenv("SQL_SERVER")
+SQL_DB = os.getenv("SQL_DB")
+SQL_USER = os.getenv("SQL_USER")
+SQL_PASSWORD = os.getenv("SQL_PASSWORD")
 VECTORSTORE_PATH = os.getenv("VECTORSTORE_PATH", "chroma_store")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME")
@@ -36,7 +36,8 @@ if not GROQ_API_KEY:
     raise RuntimeError("GROQ_API_KEY environment variable missing")
 
 # --- Embeddings & Chroma ---
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
+# Force CPU + NumPy output
+embedder = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
 chroma_client = chromadb.PersistentClient(path=VECTORSTORE_PATH)
 collection = chroma_client.get_or_create_collection("rag_docs")
 
@@ -97,11 +98,15 @@ def save_chat(session_id, question, answer):
 
         if count == 0:
             title = clean_session_name(question)
-            cursor.execute("INSERT INTO sessions (id, title, created_at) VALUES (?, ?, ?)",
-                           (session_id, title, datetime.datetime.now()))
+            cursor.execute(
+                "INSERT INTO sessions (id, title, created_at) VALUES (?, ?, ?)",
+                (session_id, title, datetime.datetime.now())
+            )
 
-        cursor.execute("INSERT INTO chat_history (session_id, question, answer, timestamp) VALUES (?, ?, ?, ?)",
-                       (session_id, question, answer, datetime.datetime.now()))
+        cursor.execute(
+            "INSERT INTO chat_history (session_id, question, answer, timestamp) VALUES (?, ?, ?, ?)",
+            (session_id, question, answer, datetime.datetime.now())
+        )
         db.commit()
         db.close()
     except Exception as e:
@@ -118,14 +123,17 @@ def semantic_chunk_text(text, max_tokens=500, similarity_threshold=0.7):
         if not sentence:
             continue
         temp_chunk = f"{current_chunk} {sentence}".strip()
-        temp_embedding = embedder.encode(temp_chunk, convert_to_tensor=True)
-        similarity = 1.0 if current_embedding is None else util.pytorch_cos_sim(current_embedding, temp_embedding).item()
+        temp_embedding = embedder.encode(temp_chunk, convert_to_tensor=False)  # NumPy, lighter
+
+        similarity = 1.0 if current_embedding is None else util.cos_sim(
+            current_embedding, temp_embedding
+        ).item()
 
         if len(temp_chunk) > max_tokens or similarity < similarity_threshold:
             if current_chunk:
                 chunks.append(current_chunk.strip())
             current_chunk = sentence
-            current_embedding = embedder.encode(current_chunk, convert_to_tensor=True)
+            current_embedding = embedder.encode(current_chunk, convert_to_tensor=False)
         else:
             current_chunk = temp_chunk
             current_embedding = temp_embedding
