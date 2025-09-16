@@ -8,21 +8,19 @@ ENV PYTHONUNBUFFERED=1
 # Set work directory
 WORKDIR /app
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     unixodbc-dev \
     gcc \
     g++ \
     curl \
-    libgl1 \
-    libglib2.0-0 \
     gnupg \
     apt-transport-https \
     lsb-release \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Microsoft ODBC Driver 17 for SQL Server
 RUN curl https://packages.microsoft.com/config/debian/12/prod.list -o /etc/apt/sources.list.d/mssql-release.list \
     && curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /etc/apt/trusted.gpg.d/microsoft.gpg \
     && apt-get update \
@@ -30,20 +28,13 @@ RUN curl https://packages.microsoft.com/config/debian/12/prod.list -o /etc/apt/s
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first (for caching)
 COPY requirements.txt /app/
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Download NLTK stopwords inside container
 RUN python -m nltk.downloader stopwords
 
-# Copy project files
 COPY . /app/
 
-# Expose port
 EXPOSE 8080
 
-# Start Gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
