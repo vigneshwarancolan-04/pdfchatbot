@@ -10,14 +10,13 @@ from openai import OpenAI, OpenAIError
 import chromadb
 from nltk.corpus import stopwords
 from dotenv import load_dotenv
-from your_app_module import app
 
 # --- Setup ---
 nltk.download("stopwords", quiet=True)
 stop_words = set(stopwords.words("english"))
 load_dotenv(".env")
 
-app = Flask(__name__)
+app = Flask(__name__)   # ✅ this is your app
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "supersecretkey")
 app.config['UPLOAD_FOLDER'] = 'pdfs'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -213,8 +212,8 @@ def chat(session_id):
 
     return render_template("chat.html", session_id=session_id, sessions=sessions, history=history)
 
-# --- Main ---
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080)) 
-    
+    port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=True)
+
