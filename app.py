@@ -10,6 +10,7 @@ from openai import OpenAI, OpenAIError
 import chromadb
 from nltk.corpus import stopwords
 from dotenv import load_dotenv
+from your_app_module import app
 
 # --- Setup ---
 nltk.download("stopwords", quiet=True)
@@ -214,5 +215,6 @@ def chat(session_id):
 
 # --- Main ---
 if __name__ == "__main__":
+    
     port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port, debug=False)
