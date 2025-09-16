@@ -35,5 +35,5 @@ COPY . /app/
 EXPOSE 8080
 
 # Start Gunicorn with dynamic port support (for Azure)
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers=2", "--threads=4", "--timeout=300", "app:app"]
+CMD ["python", "app.py"]
 
