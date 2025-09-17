@@ -8,3 +8,4 @@ chromadb==0.4.3
 openai==1.36.0
 torch==2.2.0
 numpy==1.26.0
+gunicorn==22.1.0
