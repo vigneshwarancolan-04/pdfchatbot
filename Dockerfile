@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # --- Expose port ---
-EXPOSE 8080
+EXPOSE 8181
 
 # --- Run Flask app ---
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers=2", "--threads=4", "--timeout=300", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8181", "--workers=2", "--threads=4", "--timeout=300", "app:app"]
