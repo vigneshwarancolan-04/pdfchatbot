@@ -1,37 +1,32 @@
+# --- Base image ---
 FROM python:3.11-slim
 
-# Prevent Python from writing pyc files and enable unbuffered output
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-WORKDIR /app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    unixodbc-dev \
-    gcc \
-    g++ \
-    curl \
-    libgl1 \
-    libglib2.0-0 \
+# --- System deps ---
+RUN apt-get update && apt-get install -y \
+    gcc g++ curl gnupg2 apt-transport-https unixodbc-dev \
+    build-essential libpoppler-cpp-dev pkg-config python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip
-RUN pip install --upgrade pip
+# --- Install Microsoft ODBC Driver 17 for SQL Server ---
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
+    curl https://packages.microsoft.com/config/debian/12/prod.list > /etc/apt/sources.list.d/mssql-release.list && \
+    apt-get update && ACCEPT_EULA=Y apt-get install -y msodbcsql17 && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python deps
-COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
+# --- Set work directory ---
+WORKDIR /app
 
-# Download NLTK stopwords
-RUN python -m nltk.downloader stopwords
+# --- Copy requirements first (better caching) ---
+COPY requirements.txt .
 
-# Copy application code
-COPY . /app/
+# --- Install Python deps ---
+RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
-# Expose default port for local runs
+# --- Copy app code ---
+COPY . .
+
+# --- Expose port ---
 EXPOSE 8080
 
-# Use $PORT if provided by Azure, otherwise fallback to 8080
-CMD gunicorn --bind 0.0.0.0:${PORT:-8080} --workers=2 --threads=4 --timeout=300 app:app
+# --- Start with Gunicorn ---
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers=2", "--threads=4", "--timeout=300", "app:app"]
