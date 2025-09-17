@@ -5,9 +5,6 @@ import fitz
 import nltk
 import pyodbc
 from flask import Flask, render_template, request, redirect, url_for, flash
-from sentence_transformers import SentenceTransformer, util
-from openai import OpenAI, OpenAIError
-import chromadb
 from nltk.corpus import stopwords
 from dotenv import load_dotenv
 
@@ -16,7 +13,7 @@ nltk.download("stopwords", quiet=True)
 stop_words = set(stopwords.words("english"))
 load_dotenv(".env")
 
-app = Flask(__name__)   # ✅ this is your app
+app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "supersecretkey")
 app.config['UPLOAD_FOLDER'] = 'pdfs'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -31,22 +28,33 @@ VECTORSTORE_PATH = os.getenv("VECTORSTORE_PATH", "chroma_store")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME")
 
-# --- Check API Key ---
 if not GROQ_API_KEY:
     raise RuntimeError("GROQ_API_KEY environment variable missing")
 
-# --- Embeddings & Chroma ---
-# Force CPU + NumPy output
-embedder = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
-chroma_client = chromadb.PersistentClient(path=VECTORSTORE_PATH)
-collection = chroma_client.get_or_create_collection("rag_docs")
+# --- Lazy-loaded global variables ---
+embedder = None
+chroma_client = None
+collection = None
+client = None
 
-# --- Groq Client ---
-try:
-    client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
-except OpenAIError as e:
-    print("[ERROR] Failed to initialize Groq client:", e)
-    raise
+# --- Initialize heavy services lazily ---
+def initialize_services():
+    global embedder, chroma_client, collection, client
+    if embedder is None:
+        from sentence_transformers import SentenceTransformer, util
+        embedder = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
+    if chroma_client is None:
+        import chromadb
+        chroma_client = chromadb.PersistentClient(path=VECTORSTORE_PATH)
+        collection = chroma_client.get_or_create_collection("rag_docs")
+    if client is None:
+        from openai import OpenAI
+        client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
+
+# Call on first request
+@app.before_first_request
+def startup():
+    initialize_services()
 
 # --- Database (Azure SQL) ---
 def get_db():
@@ -114,6 +122,7 @@ def save_chat(session_id, question, answer):
 
 # --- RAG helpers ---
 def semantic_chunk_text(text, max_tokens=500, similarity_threshold=0.7):
+    from sentence_transformers import util
     sentences = text.split(". ")
     chunks, current_chunk = [], ""
     current_embedding = None
@@ -123,8 +132,7 @@ def semantic_chunk_text(text, max_tokens=500, similarity_threshold=0.7):
         if not sentence:
             continue
         temp_chunk = f"{current_chunk} {sentence}".strip()
-        temp_embedding = embedder.encode(temp_chunk, convert_to_tensor=False)  # NumPy, lighter
-
+        temp_embedding = embedder.encode(temp_chunk, convert_to_tensor=False)
         similarity = 1.0 if current_embedding is None else util.cos_sim(
             current_embedding, temp_embedding
         ).item()
@@ -201,7 +209,7 @@ def chat(session_id):
                     max_tokens=300
                 )
                 answer = response.choices[0].message.content.strip()
-            except OpenAIError as e:
+            except Exception as e:
                 print("Groq API Error:", e)
                 answer = "Error: Could not fetch response from Groq API."
 
@@ -211,7 +219,6 @@ def chat(session_id):
         return render_template("chat.html", session_id=session_id, sessions=sessions, history=history)
 
     return render_template("chat.html", session_id=session_id, sessions=sessions, history=history)
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8080"))
