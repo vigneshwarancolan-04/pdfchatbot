@@ -29,4 +29,4 @@ COPY . .
 EXPOSE 8080
 
 # Run app with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers=2", "--threads=4", "--timeout=300", "app:app"]
+CMD ["python", "app.py"]
