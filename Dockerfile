@@ -22,9 +22,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # --- Copy app code ---
 COPY . .
 
-# --- Expose port for local testing ---
+# --- Expose port (Azure will set PORT env variable) ---
 EXPOSE 8080
 
-# --- Run Flask app with gunicorn ---
-# Use PORT env variable from Azure, default to 8080 for local runs
+# --- Run Flask app using gunicorn ---
+# Azure App Service sets the PORT env variable automatically
 CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --workers=2 --threads=4 --timeout=300 app:app"]
