@@ -16,6 +16,9 @@ COPY requirements.txt .
 # --- Upgrade pip first ---
 RUN pip install --upgrade pip
 
+# --- Install PyTorch CPU version explicitly ---
+RUN pip install torch --index-url https://download.pytorch.org/whl/cpu
+
 # --- Install Python dependencies ---
 RUN pip install --no-cache-dir -r requirements.txt
 
