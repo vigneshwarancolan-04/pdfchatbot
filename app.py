@@ -1,62 +1,53 @@
 import os
 import uuid
 import datetime
-import fitz
+import fitz  # PyMuPDF
 import nltk
 import pyodbc
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for
+from sentence_transformers import SentenceTransformer, util
+from openai import OpenAI, OpenAIError
+import chromadb
 from nltk.corpus import stopwords
 from dotenv import load_dotenv
 
 # --- Setup ---
 nltk.download("stopwords", quiet=True)
 stop_words = set(stopwords.words("english"))
-load_dotenv(".env")
+load_dotenv(".env")  # Load environment variables
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "supersecretkey")
-app.config['UPLOAD_FOLDER'] = 'pdfs'
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-os.makedirs('chroma_store', exist_ok=True)
+UPLOAD_FOLDER = app.config['UPLOAD_FOLDER'] = 'pdfs'
+VECTORSTORE_PATH = 'chroma_store'
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(VECTORSTORE_PATH, exist_ok=True)
 
 # --- Environment Variables ---
 SQL_SERVER = os.getenv("SQL_SERVER")
 SQL_DB = os.getenv("SQL_DB")
 SQL_USER = os.getenv("SQL_USER")
 SQL_PASSWORD = os.getenv("SQL_PASSWORD")
-VECTORSTORE_PATH = os.getenv("VECTORSTORE_PATH", "chroma_store")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME")
 
 if not GROQ_API_KEY:
     raise RuntimeError("GROQ_API_KEY environment variable missing")
 
-# --- Lazy-loaded global variables ---
-embedder = None
-chroma_client = None
-collection = None
-client = None
+# --- Embeddings & ChromaDB ---
+embedder = SentenceTransformer("all-MiniLM-L6-v2")
+chroma_client = chromadb.PersistentClient(path=VECTORSTORE_PATH)
+collection = chroma_client.get_or_create_collection("rag_docs")
 
-# --- Initialize heavy services lazily ---
-def initialize_services():
-    global embedder, chroma_client, collection, client
-    if embedder is None:
-        from sentence_transformers import SentenceTransformer, util
-        embedder = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
-    if chroma_client is None:
-        import chromadb
-        chroma_client = chromadb.PersistentClient(path=VECTORSTORE_PATH)
-        collection = chroma_client.get_or_create_collection("rag_docs")
-    if client is None:
-        from openai import OpenAI
-        client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
+# --- Groq/OpenAI Client ---
+try:
+    client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
+except OpenAIError as e:
+    print("[ERROR] Failed to initialize Groq client:", e)
+    raise
 
-# Call on first request
-@app.before_first_request
-def startup():
-    initialize_services()
-
-# --- Database (Azure SQL) ---
+# --- Database Helper ---
 def get_db():
     conn_str = (
         f"DRIVER={{ODBC Driver 17 for SQL Server}};"
@@ -67,7 +58,7 @@ def get_db():
     )
     return pyodbc.connect(conn_str)
 
-# --- Utilities ---
+# --- Utility Functions ---
 def clean_session_name(text):
     words = text.split()
     filtered = [w for w in words if w.lower() not in stop_words]
@@ -89,7 +80,10 @@ def load_history(session_id):
     try:
         db = get_db()
         cursor = db.cursor()
-        cursor.execute("SELECT question, answer FROM chat_history WHERE session_id = ? ORDER BY timestamp", (session_id,))
+        cursor.execute(
+            "SELECT question, answer FROM chat_history WHERE session_id = ? ORDER BY timestamp",
+            (session_id,)
+        )
         rows = cursor.fetchall()
         db.close()
         return [{"question": q, "answer": a} for q, a in rows]
@@ -120,9 +114,8 @@ def save_chat(session_id, question, answer):
     except Exception as e:
         print("DB Error save_chat:", e)
 
-# --- RAG helpers ---
+# --- RAG Helpers ---
 def semantic_chunk_text(text, max_tokens=500, similarity_threshold=0.7):
-    from sentence_transformers import util
     sentences = text.split(". ")
     chunks, current_chunk = [], ""
     current_embedding = None
@@ -132,16 +125,14 @@ def semantic_chunk_text(text, max_tokens=500, similarity_threshold=0.7):
         if not sentence:
             continue
         temp_chunk = f"{current_chunk} {sentence}".strip()
-        temp_embedding = embedder.encode(temp_chunk, convert_to_tensor=False)
-        similarity = 1.0 if current_embedding is None else util.cos_sim(
-            current_embedding, temp_embedding
-        ).item()
+        temp_embedding = embedder.encode(temp_chunk, convert_to_tensor=True)
+        similarity = 1.0 if current_embedding is None else util.pytorch_cos_sim(current_embedding, temp_embedding).item()
 
         if len(temp_chunk) > max_tokens or similarity < similarity_threshold:
             if current_chunk:
                 chunks.append(current_chunk.strip())
             current_chunk = sentence
-            current_embedding = embedder.encode(current_chunk, convert_to_tensor=False)
+            current_embedding = embedder.encode(current_chunk, convert_to_tensor=True)
         else:
             current_chunk = temp_chunk
             current_embedding = temp_embedding
@@ -161,28 +152,49 @@ def process_pdf(pdf_path, filename):
                 ids=[f"{filename}_p{page_num}_c{i}"]
             )
 
-def search_chunks(query, k=3):
+def search_chunks(query, k=5):
     results = collection.query(query_texts=[query], n_results=k)
     return list(zip(results["documents"][0], results["metadatas"][0], results["distances"][0]))
 
-def build_prompt(question, chunks):
+def build_prompt(question, chunks, history=None):
+    # Merge context from PDF chunks
     context = "\n\n".join([doc for doc, _, _ in chunks])
-    return f"""You are a helpful assistant. Use ONLY the context below to answer the question.
+    
+    # Include last 5 messages from chat history
+    chat_history_text = ""
+    if history:
+        for h in history[-5:]:
+            # Preserve LaTeX formulas by wrapping with $$ if not already
+            answer = h['answer']
+            if "$" not in answer:
+                answer = answer.replace("\n", "  \n")  # Preserve line breaks in Markdown/HTML
+            chat_history_text += f"User: {h['question']}\nAssistant: {answer}\n"
+
+    # Final prompt
+    prompt = f"""You are a helpful, friendly AI assistant. Answer the question using ONLY the context below. 
+If the answer is not in the context, say "I don't know". Maintain conversation continuity, clarity, and readability.
+Use proper formatting for math (LaTeX) where needed.
+
+Chat History:
+{chat_history_text}
 
 Context:
 {context}
 
-Question: {question}
+Question:
+{question}
 Answer:"""
 
-# --- Routes ---
+    return prompt
+
+# --- Flask Routes ---
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
         pdf = request.files.get("pdf")
         if pdf and pdf.filename.lower().endswith(".pdf"):
             filename = pdf.filename
-            save_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+            save_path = os.path.join(UPLOAD_FOLDER, filename)
             pdf.save(save_path)
             process_pdf(save_path, filename)
             session_id = str(uuid.uuid4())
@@ -200,16 +212,17 @@ def chat(session_id):
         question = request.form.get("question", "").strip()
         if question:
             chunks = search_chunks(question)
-            prompt = build_prompt(question, chunks)
+            prompt = build_prompt(question, chunks, history)
             try:
                 response = client.chat.completions.create(
                     model=MODEL_NAME,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.7,
-                    max_tokens=300
+                    max_tokens=600,
+                    top_p=0.9
                 )
                 answer = response.choices[0].message.content.strip()
-            except Exception as e:
+            except OpenAIError as e:
                 print("Groq API Error:", e)
                 answer = "Error: Could not fetch response from Groq API."
 
@@ -220,6 +233,7 @@ def chat(session_id):
 
     return render_template("chat.html", session_id=session_id, sessions=sessions, history=history)
 
+# --- Main ---
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", "8080"))
-    app.run(host="0.0.0.0", port=port)
+    port = int(os.environ.get("PORT", 80))
+    app.run(host="0.0.0.0", port=port, debug=True)
