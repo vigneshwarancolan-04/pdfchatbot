@@ -3,9 +3,9 @@ python-dotenv==1.0.1
 pyodbc==5.2.0
 PyMuPDF==1.22.5
 nltk==3.8.1
+numpy==1.26.0
+huggingface_hub==0.14.1
 sentence-transformers==2.2.2
 chromadb==0.4.3
 openai==1.36.0
-torch==2.2.0
-numpy==1.26.0
-gunicorn
+gunicorn==23.0.0
