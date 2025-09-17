@@ -9,3 +9,4 @@ sentence-transformers==2.2.2
 chromadb==0.4.3
 openai==1.36.0
 gunicorn==23.0.0
+pymupdf==1.23.6
