@@ -26,4 +26,4 @@ COPY . .
 EXPOSE 8080
 
 # --- Run Flask app ---
-CMD ["python", "app.py"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers=2", "--threads=4", "--timeout=300", "app:app"]
