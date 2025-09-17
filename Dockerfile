@@ -4,7 +4,6 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Set working directory
 WORKDIR /app
 
 # Install system dependencies
@@ -21,18 +20,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Upgrade pip
 RUN pip install --upgrade pip
 
-# Copy and install Python dependencies
+# Copy requirements and install Python deps
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Download NLTK stopwords
 RUN python -m nltk.downloader stopwords
 
-# Copy app source code
+# Copy application code
 COPY . /app/
 
-# Expose port 8080
+# Expose default port for local runs
 EXPOSE 8080
 
-# This ensures the container works if Azure sets $PORT dynamically
-CMD gunicorn --bind 0.0.0.0:8080 app:app
+# Use $PORT if provided by Azure, otherwise fallback to 8080
+CMD gunicorn --bind 0.0.0.0:${PORT:-8080} --workers=2 --threads=4 --timeout=300 app:app
