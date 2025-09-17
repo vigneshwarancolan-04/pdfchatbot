@@ -7,6 +7,9 @@ RUN apt-get update && apt-get install -y \
     libpoppler-cpp-dev pkg-config python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# --- Environment ---
+ENV PYTHONUNBUFFERED=1
+
 # --- Set working directory ---
 WORKDIR /app
 
@@ -14,7 +17,7 @@ WORKDIR /app
 COPY requirements.txt .
 
 # --- Install Python dependencies ---
-RUN pip install --no-cache-dir -r requirements.txt gunicorn
+RUN pip install --no-cache-dir -r requirements.txt
 
 # --- Copy app code ---
 COPY . .
@@ -22,5 +25,5 @@ COPY . .
 # --- Expose port ---
 EXPOSE 8080
 
-# --- Start with Gunicorn ---
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers=2", "--threads=4", "--timeout=300", "app:app"]
+# --- Run Flask app ---
+CMD ["python", "app.py"]
