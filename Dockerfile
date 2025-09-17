@@ -34,6 +34,5 @@ COPY . /app/
 # Expose port 8080
 EXPOSE 8080
 
-# Use shell form CMD to allow environment variable fallback (Azure passes $PORT)
 # This ensures the container works if Azure sets $PORT dynamically
 CMD gunicorn --bind 0.0.0.0:8080 app:app
